@@ -1,15 +1,12 @@
 ﻿#ifndef LOGGER_H
 #define LOGGER_H
 
-/*
- * 从条纹相机上位机程序拷贝修改。
- */
-
 #include <QObject>
 #include <QThread>
 #include <QDateTime>
 
 #include "common_tools/common_macros.h"
+#include "version_def/version_def.h"
 
 #define LOG_LEVEL_ITEM(lvl) LOG_##lvl
 #define LOG_LEVEL_LIST \

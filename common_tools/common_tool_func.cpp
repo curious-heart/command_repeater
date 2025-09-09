@@ -565,9 +565,6 @@ bool chk_mk_pth_and_warn(QString &pth_str, QWidget * parent, bool warn_caller)
 QString shutdown_system(QString reason_str,int wait_time)
 {
 #ifdef Q_OS_UNIX
-    extern const char* g_main_th_local_log_fn;
-    LOCAL_DIY_LOG(LOG_INFO, g_main_th_local_log_fn, reason_str);
-
     if(wait_time > 0) QThread::sleep(wait_time);
 
     QProcess::execute("sync", {});

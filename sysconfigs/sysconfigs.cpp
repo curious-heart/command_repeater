@@ -37,15 +37,11 @@ static const char* gs_def_rmt_ip = "192.168.2.7";
 static const quint16 gs_def_rmt_port = 8020;
 
 static QString gs_def_cmd1_name = "启动曝光";
-static const char gs_def_cmd1_data[] = {'\xAA', '\x55'};
-static const QByteArray gs_def_cmd1_content = QByteArray(gs_def_cmd1_data,
-                                                         ARRAY_COUNT(gs_def_cmd1_data));
+static const char* gs_def_cmd1_content = "AA 55";
 static const double gs_def_cmd1_dura_s = 10;
 
 static QString gs_def_cmd2_name = "停止曝光";
-static const char gs_def_cmd2_data[] = {'\xBB', '\x55'};
-static const QByteArray gs_def_cmd2_content = QByteArray(gs_def_cmd2_data,
-                                                         ARRAY_COUNT(gs_def_cmd2_data));
+static const char* gs_def_cmd2_content = "BB 55";
 static const double gs_def_cmd2_dura_s = 30;
 
 static RangeChecker<int> gs_cfg_file_log_level_ranger((int)LOG_DEBUG, (int)LOG_ERROR, "",
