@@ -27,6 +27,7 @@ STR_DELCARE_STMT(g_str_invalid_port_number, "无效的端口号") \
 STR_DELCARE_STMT(g_str_invalid_dura_value, "无效时间值") \
 STR_DELCARE_STMT(g_str_test_finished, "测试结束") \
 STR_DELCARE_STMT(g_str_unknown_reason, "未知原因") \
+STR_DELCARE_STMT(g_str_unknown_cmd, "未知命令") \
 STR_DELCARE_STMT(g_str_plz_conn_dev_firstly, "请先连接设备") \
 STR_DELCARE_STMT(g_str_charging, "正在充电") \
 STR_DELCARE_STMT(gs_str_sport_open_succeed, "串口打开成功") \

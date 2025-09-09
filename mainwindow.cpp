@@ -11,7 +11,8 @@
 #undef ENUM_NAME_DEF
 #define ENUM_NAME_DEF(e, ...) #e,
 
-const char* g_test_finish_reason_str[] = {TEST_FINISH_REASON_E_LIST };
+const char* g_test_cmd_id_str[] = { CMD_ID_E_LIST };
+const char* g_test_finish_reason_str[] = { TEST_FINISH_REASON_E_LIST };
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_init_ok(false)
@@ -52,6 +53,8 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    m_cfg_recorder.record_ui_configs(this);
+
     delete ui;
 }
 
@@ -66,7 +69,7 @@ void MainWindow::refresh_ctrls_display()
 {
     ui->rmtIPLEdit->setEnabled(!m_in_test);
     ui->rmtPortLEdit->setEnabled(!m_in_test);
-    ui->repeatCntSpinbox->setEnabled(!m_in_test);
+    ui->repeatCntSpinbox->setEnabled(!m_in_test && !ui->repeatInfiChkbox->isChecked());
     ui->repeatInfiChkbox->setEnabled(!m_in_test);
     ui->cmd1DuraLEdit->setEnabled(!m_in_test);
     ui->cmd2DuraLEdit->setEnabled(!m_in_test);
@@ -99,7 +102,7 @@ void MainWindow::set_ctrls_attr()
     ui->cmd2Lbl->setText(cmd_n + g_sys_configs_block.cmd_blk.cmd2_name);
 }
 
-bool MainWindow::update_test_params_on_ui(bool init)
+bool MainWindow::update_test_params_on_ui(bool init, QString * ret_err_str)
 {
     bool ret = true;
     QString err_str;
@@ -114,7 +117,7 @@ bool MainWindow::update_test_params_on_ui(bool init)
         else
         {
             ret = false;
-            err_str += g_str_invalid_ip_addr;
+            err_str += QString((err_str.isEmpty() ? "" : "\n")) + g_str_invalid_ip_addr;
         }
     }
     else
@@ -123,8 +126,8 @@ bool MainWindow::update_test_params_on_ui(bool init)
     }
 
     bool tr_ret;
-    quint16 port = ui->rmtPortLEdit->text().toUInt(&tr_ret);
-    if(!tr_ret || !g_ip_port_ranger.range_check(port))
+    int tmp_port = ui->rmtPortLEdit->text().toInt(&tr_ret);
+    if(!tr_ret || !g_ip_port_ranger.range_check(tmp_port))
     {
         if(init)
         {
@@ -134,12 +137,12 @@ bool MainWindow::update_test_params_on_ui(bool init)
         else
         {
             ret = false;
-            err_str += g_str_invalid_port_number;
+            err_str += QString((err_str.isEmpty() ? "" : "\n")) + g_str_invalid_port_number;
         }
     }
     else
     {
-        m_rmt_port = port;
+        m_rmt_port = (quint16)tmp_port;
     }
 
     m_repeat_cnt = ui->repeatCntSpinbox->value();
@@ -160,7 +163,8 @@ bool MainWindow::update_test_params_on_ui(bool init)
             else
             {
                 ret = false;
-                err_str += QString("%1%2").arg(g_str_invalid_dura_value).arg(i);
+                err_str += QString((err_str.isEmpty() ? "" : "\n"))
+                            + QString("%1%2").arg(g_str_invalid_dura_value).arg(i);
             }
         }
         else
@@ -170,18 +174,25 @@ bool MainWindow::update_test_params_on_ui(bool init)
 
     }
 
+    if(ret_err_str) *ret_err_str = err_str;
     return ret;
 }
 
 void MainWindow::on_startTestPBtn_clicked()
 {
+    QString err_str;
+    if(!update_test_params_on_ui(false, &err_str))
+    {
+        QMessageBox::critical(this, "", err_str);
+        return;
+    }
+
     m_repeat_idx = 0;
     m_curr_cmd = CMD_2;
     m_in_test = true;
 
     refresh_ctrls_display();
 
-    update_test_params_on_ui();
     m_cmd_timer.start(0);
 
     m_cfg_recorder.record_ui_configs(this);
@@ -218,11 +229,16 @@ void MainWindow::send_cmd(cmd_id_e_t cmd_id)
     QByteArray cmd = (CMD_1 == cmd_id) ? g_sys_configs_block.cmd_blk.cmd1_content :
                                          g_sys_configs_block.cmd_blk.cmd2_content;
 
-    udpSocket->writeDatagram(cmd, QHostAddress(g_sys_configs_block.rmt_ip_port.ip),
-                             g_sys_configs_block.rmt_ip_port.port);
+    udpSocket->writeDatagram(cmd, QHostAddress(m_rmt_ip), m_rmt_port);
 
-    DIY_LOG(LOG_INFO, QString("send cmd (%1): ").arg(m_repeat_idx + 1)
-                        + cmd.toHex(' ').rightJustified(2, '0').toUpper());
+    QString log_str = QString("send %1 (%2) to %3:%4: ")
+                                .arg(VALID_CMD_ID(cmd_id) ? g_test_cmd_id_str[cmd_id]
+                                                            : g_str_unknown_cmd)
+                                .arg(m_repeat_idx + 1)
+                                .arg(m_rmt_ip).arg(m_rmt_port);
+    log_str += cmd.toHex(' ').rightJustified(2, '0').toUpper();
+
+    DIY_LOG(LOG_INFO, log_str);
 }
 
 void MainWindow::cmd_timer_sig_hdlr()

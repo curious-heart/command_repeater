@@ -12,11 +12,13 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
+#define CMD_ID_E_LIST \
+    ENUM_NAME_DEF(CMD_NONE, =0) \
+    ENUM_NAME_DEF(CMD_1) \
+    ENUM_NAME_DEF(CMD_2)
 typedef enum
 {
-    CMD_NONE = 0,
-    CMD_1,
-    CMD_2,
+    CMD_ID_E_LIST
 }cmd_id_e_t;
 Q_DECLARE_METATYPE(cmd_id_e_t)
 #define VALID_CMD_ID(e) ((CMD_1 <= (e)) && ((e) <= CMD_2))
@@ -72,7 +74,7 @@ private:
     void reset_test();
     void send_cmd(cmd_id_e_t cmd_id);
 
-    bool update_test_params_on_ui(bool init = false);
+    bool update_test_params_on_ui(bool init = false, QString *ret_err_str = nullptr);
 
 signals:
     void test_finished_sig(test_finish_reason_e_t reason);
