@@ -75,6 +75,7 @@ private:
     void send_cmd(cmd_id_e_t cmd_id);
 
     bool update_test_params_on_ui(bool init = false, QString *ret_err_str = nullptr);
+    void display_info(QString info_str, bool no_prefix = false);
 
 signals:
     void test_finished_sig(test_finish_reason_e_t reason);
@@ -82,5 +83,6 @@ signals:
 private slots:
     void cmd_timer_sig_hdlr();
     void test_finished_sig_hdlr(test_finish_reason_e_t reason);
+    void on_clrDispPBtn_clicked();
 };
 #endif // MAINWINDOW_H

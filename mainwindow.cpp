@@ -27,7 +27,8 @@ MainWindow::MainWindow(QWidget *parent)
     set_ctrls_attr();
 
     m_rec_ui_cfg_fin.clear();
-    m_rec_ui_cfg_fout << ui->cmd1ContentLEdit << ui->cmd2ContentLEdit;
+    m_rec_ui_cfg_fout << ui->cmd1ContentLEdit << ui->cmd2ContentLEdit
+                      << ui->infoDispEdit;
 
     //load ui settings saved last time.
     m_cfg_recorder.load_configs_to_ui(this, m_rec_ui_cfg_fin, m_rec_ui_cfg_fout);
@@ -213,8 +214,8 @@ void MainWindow::on_stopTestPBtn_clicked()
     {
         DIY_LOG(LOG_INFO, "Complete cmd cycle, send CMD_2");
         send_cmd(CMD_2);
+        ++m_repeat_idx;
     }
-    ++m_repeat_idx;
 
     test_finished_sig_hdlr(FINISH_BY_USER);
 }
@@ -239,6 +240,8 @@ void MainWindow::send_cmd(cmd_id_e_t cmd_id)
     log_str += cmd.toHex(' ').rightJustified(2, '0').toUpper();
 
     DIY_LOG(LOG_INFO, log_str);
+
+    display_info(log_str);
 }
 
 void MainWindow::cmd_timer_sig_hdlr()
@@ -287,9 +290,25 @@ void MainWindow::test_finished_sig_hdlr(test_finish_reason_e_t reason)
     str += QString("Total send %1 cycles.").arg(m_repeat_idx);
     DIY_LOG(LOG_INFO, str);
 
+    display_info("", true);
+    str += "\n--------------------------------";
+    display_info(str);
+
     reset_test();
 
     refresh_ctrls_display();
 
     QMessageBox::information(this, "", str);
+}
+
+void MainWindow::on_clrDispPBtn_clicked()
+{
+    ui->infoDispEdit->clear();
+}
+
+void MainWindow::display_info(QString info_str, bool no_prefix )
+{
+    QString prefix_str = common_tool_get_curr_dt_str("-", " ", ":") + " ";
+    QString disp_str = no_prefix ? info_str : prefix_str + info_str;
+    ui->infoDispEdit->append(disp_str);
 }

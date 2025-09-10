@@ -517,10 +517,13 @@ bool set_fixed_ip_address(QString ipaddr_str, QString addr_mask, QString gw)
     return f_ret;
 }
 
-QString common_tool_get_curr_dt_str()
+QString common_tool_get_curr_dt_str(QString sep_d, QString sep_d_t, QString sep_t)
 {
     QDateTime curDateTime = QDateTime::currentDateTime();
-    QString dtstr = curDateTime.toString("yyyyMMddhhmmss");
+    QString fmt_str = QString("yyyy%1MM%2dd%3hh%4mm%5ss")
+                        .arg(sep_d, sep_d, sep_d_t, sep_t, sep_t);
+
+    QString dtstr = curDateTime.toString(fmt_str);
     return dtstr;
 }
 

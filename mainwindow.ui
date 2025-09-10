@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>458</width>
-    <height>280</height>
+    <height>406</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -176,7 +176,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="cmd1ContentLEdit"/>
+            <widget class="QLineEdit" name="cmd1ContentLEdit">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
            </item>
           </layout>
          </item>
@@ -215,7 +219,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="cmd2ContentLEdit"/>
+            <widget class="QLineEdit" name="cmd2ContentLEdit">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
            </item>
           </layout>
          </item>
@@ -229,7 +237,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="cmd2DuraLEdit"/>
+            <widget class="QLineEdit" name="cmd2DuraLEdit">
+             <property name="readOnly">
+              <bool>false</bool>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QLabel" name="label_9">
@@ -243,6 +255,20 @@
         </layout>
        </item>
       </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTextEdit" name="infoDispEdit">
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="clrDispPBtn">
+      <property name="text">
+       <string>清除显示</string>
+      </property>
      </widget>
     </item>
    </layout>

@@ -53,7 +53,10 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
     // 设置全局样式表
     a.setStyleSheet(
-        "QLineEdit[readOnly=\"true\"] { "
+        "QLineEdit[readOnly=\"true\"], "
+        "QTextEdit[readOnly=\"true\"], "
+        "QPlainTextEdit[readOnly=\"true\"] "
+        " { "
         "  background-color: #f5f5f5; "
         "  color: black; "
         "  border: 1px solid #cccccc; "
