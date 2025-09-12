@@ -112,7 +112,7 @@ private:
 #endif
 
     quint16 m_proc_id, m_icmp_sequence;
-    QTimer *m_pingTimer, *m_recvTimer;
+    QTimer *m_pingTimer = nullptr, *m_recvTimer = nullptr;
 };
 
 #endif // PINGTHREAD_H

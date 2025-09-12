@@ -13,7 +13,7 @@ static QString get_err_string()
 #if defined(Q_OS_WIN)
     err_str = QString("%1").arg(WSAGetLastError());
 #else
-    err_str = QString("%1:%2).arg(errno).arg(strerror(errno));
+    err_str = QString("%1:%2").arg(errno).arg(strerror(errno));
 #endif
       return err_str;
 }
@@ -50,7 +50,7 @@ PingThread::PingThread(QObject *parent)
     m_sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (m_sock < 0)
     {
-        DIY_LOG(LOG_ERROR, "Socket creation failed!");
+        DIY_LOG(LOG_ERROR, QString("Socket creation failed: %1 %2").arg(errno).arg(strerror(errno)));
         return;
     }
 #endif
@@ -63,7 +63,11 @@ PingThread::PingThread(QObject *parent)
     connect(m_recvTimer, &QTimer::timeout, this, &PingThread::time_to_recv, Qt::QueuedConnection);
 
     m_icmp_sequence = 1;
+#if defined(Q_OS_WIN)
     m_proc_id = static_cast<unsigned short>(GetCurrentProcessId());
+#else
+    m_proc_id = static_cast<unsigned short>(getpid());
+#endif
 
     m_init_ok = true;
 }
@@ -103,7 +107,8 @@ void PingThread::start_ping_hdlr(const QString ip, int int_between_s_r, int wait
 
 void PingThread::stop_ping_hdlr() {
     m_stopRequested = true;
-    m_pingTimer->stop();  // 停止定时器
+    if(m_pingTimer) m_pingTimer->stop();  // 停止定时器
+    if(m_recvTimer) m_recvTimer->stop();
 }
 
 void PingThread::ping()
@@ -173,7 +178,7 @@ bool PingThread::sendIcmpRequest(const QString &ipAddress)
         return false;
     }
 #else
-    int bytesSent = sendto(m_sock, icmp_pkt.data(), icmp_pkt_size(), 0,
+    int bytesSent = sendto(m_sock, icmp_pkt.data(), icmp_pkt.size(), 0,
                            (struct sockaddr*)&dest_addr, sizeof(dest_addr));
     if (bytesSent < 0)
     {
