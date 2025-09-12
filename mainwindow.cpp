@@ -16,7 +16,8 @@ const char* g_test_finish_reason_str[] = { TEST_FINISH_REASON_E_LIST };
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_init_ok(false)
-    , ui(new Ui::MainWindow), m_cfg_recorder(this)
+    , ui(new Ui::MainWindow), m_cfg_recorder(this),
+      m_ping_th(nullptr), m_ping_th_hdlr(nullptr)
 {
     qRegisterMetaType<cmd_id_e_t>("cmd_id_e_t");
     qRegisterMetaType<test_finish_reason_e_t>("test_finish_reason_e_t");
@@ -49,12 +50,52 @@ MainWindow::MainWindow(QWidget *parent)
 
     refresh_ctrls_display();
 
+    if(g_sys_configs_block.ping_params.check_ping)
+    {
+        m_ping_th = new PingThread();
+        if(m_ping_th->m_init_ok)
+        {
+            m_ping_th_hdlr = new QThread(this);
+            m_ping_th->moveToThread(m_ping_th_hdlr);
+            connect(m_ping_th_hdlr, &QThread::finished, m_ping_th, &QObject::deleteLater);
+
+            connect(m_ping_th, &PingThread::target_unavaliable_sig,
+                    this, &MainWindow::target_unavaliable_sig_hdlr, Qt::QueuedConnection);
+
+            connect(this, &MainWindow::start_ping_sig, m_ping_th, &PingThread::start_ping_hdlr,
+                    Qt::QueuedConnection);
+            connect(this, &MainWindow::stop_ping_sig, m_ping_th, &PingThread::stop_ping_hdlr,
+                    Qt::QueuedConnection);
+
+            m_ping_th_hdlr->start();
+        }
+        else
+        {
+            delete m_ping_th;
+            m_ping_th = nullptr;
+            DIY_LOG(LOG_WARN, "Ping thread init fails");
+        }
+    }
+
     m_init_ok = true;
 }
 
 MainWindow::~MainWindow()
 {
     m_cfg_recorder.record_ui_configs(this);
+
+    if(m_in_test)
+    {
+        test_finished_sig_hdlr(FINISH_ON_APP_EXIT, true);
+    }
+
+    if(m_ping_th_hdlr)
+    {
+        m_ping_th_hdlr->quit();
+        m_ping_th_hdlr->wait();
+        m_ping_th_hdlr->deleteLater();
+        m_ping_th_hdlr = nullptr;
+    }
 
     delete ui;
 }
@@ -194,6 +235,12 @@ void MainWindow::on_startTestPBtn_clicked()
 
     refresh_ctrls_display();
 
+    if(m_ping_th) emit start_ping_sig(m_rmt_ip, g_sys_configs_block.ping_params.ping_int_between_s_r,
+                                      g_sys_configs_block.ping_params.ping_wait_dura_s,
+                                      g_sys_configs_block.ping_params.ping_int_between_r_s,
+                                      g_sys_configs_block.ping_params.ping_miss_count,
+                                      g_sys_configs_block.ping_params.ping_data);
+
     m_cmd_timer.start(0);
 
     m_cfg_recorder.record_ui_configs(this);
@@ -246,6 +293,12 @@ void MainWindow::send_cmd(cmd_id_e_t cmd_id)
 
 void MainWindow::cmd_timer_sig_hdlr()
 {
+    if(!m_in_test)
+    {
+        emit test_finished_sig(FINISH_NONE, true);
+        return;
+    }
+
     bool go_on = ui->repeatInfiChkbox->isChecked() || (m_repeat_idx < m_repeat_cnt);
 
     if(!go_on)
@@ -282,7 +335,7 @@ void MainWindow::cmd_timer_sig_hdlr()
     }
 }
 
-void MainWindow::test_finished_sig_hdlr(test_finish_reason_e_t reason)
+void MainWindow::test_finished_sig_hdlr(test_finish_reason_e_t reason, bool quiet)
 {
     QString str = QString("%1: %2\n").arg(g_str_test_finished,
                                 VALID_FINISH_REASON(reason) ? g_test_finish_reason_str[reason] :
@@ -290,15 +343,21 @@ void MainWindow::test_finished_sig_hdlr(test_finish_reason_e_t reason)
     str += QString("Total send %1 cycles.").arg(m_repeat_idx);
     DIY_LOG(LOG_INFO, str);
 
-    display_info("", true);
-    str += "\n--------------------------------";
-    display_info(str);
+    if(!quiet)
+    {
+        display_info("", true);
+        str += "\n--------------------------------";
+
+        display_info(str);
+    }
+
+    if(m_ping_th_hdlr) emit stop_ping_sig();
 
     reset_test();
 
     refresh_ctrls_display();
 
-    QMessageBox::information(this, "", str);
+    if(!quiet) QMessageBox::information(this, "", str);
 }
 
 void MainWindow::on_clrDispPBtn_clicked()
@@ -311,4 +370,9 @@ void MainWindow::display_info(QString info_str, bool no_prefix )
     QString prefix_str = common_tool_get_curr_dt_str("-", " ", ":") + " ";
     QString disp_str = no_prefix ? info_str : prefix_str + info_str;
     ui->infoDispEdit->append(disp_str);
+}
+
+void MainWindow::target_unavaliable_sig_hdlr()
+{
+    test_finished_sig_hdlr(FINISH_DUE_TO_NETWORK_ERROR);
 }

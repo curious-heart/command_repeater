@@ -15,6 +15,7 @@ SOURCES += \
     logger/logger.cpp \
     main.cpp \
     mainwindow.cpp \
+    pingthread.cpp \
     sysconfigs/sysconfigs.cpp \
     version_def/version_def.cpp
 
@@ -25,6 +26,7 @@ HEADERS += \
     literal_strings/literal_strings.h \
     logger/logger.h \
     mainwindow.h \
+    pingthread.h \
     sysconfigs/sysconfigs.h \
     version_def/version_def.h
 

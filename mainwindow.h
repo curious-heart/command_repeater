@@ -4,9 +4,12 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QUdpSocket>
+#include <QThread>
 
 #include "config_recorder/uiconfigrecorder.h"
 #include "common_tools/common_macros.h"
+#include "sysconfigs/sysconfigs.h"
+#include "pingthread.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -24,14 +27,18 @@ Q_DECLARE_METATYPE(cmd_id_e_t)
 #define VALID_CMD_ID(e) ((CMD_1 <= (e)) && ((e) <= CMD_2))
 
 #define TEST_FINISH_REASON_E_LIST \
+    ENUM_NAME_DEF(FINISH_NONE) \
     ENUM_NAME_DEF(FINISH_BY_USER) \
-    ENUM_NAME_DEF(FINISH_BY_COUNTER)
+    ENUM_NAME_DEF(FINISH_BY_COUNTER) \
+    ENUM_NAME_DEF(FINISH_DUE_TO_NETWORK_ERROR) \
+    ENUM_NAME_DEF(FINISH_ON_APP_EXIT) \
+    ENUM_NAME_DEF(FINISH_REASON_CNT)
 typedef enum
 {
     TEST_FINISH_REASON_E_LIST
 }test_finish_reason_e_t;
 Q_DECLARE_METATYPE(test_finish_reason_e_t)
-#define VALID_FINISH_REASON(e) ((FINISH_BY_USER <= (e)) && ((e) <= FINISH_BY_COUNTER))
+#define VALID_FINISH_REASON(e) ((FINISH_NONE <= (e)) && ((e) < FINISH_REASON_CNT))
 
 class MainWindow : public QMainWindow
 {
@@ -68,6 +75,9 @@ private:
 
     QUdpSocket *udpSocket;
 
+    PingThread * m_ping_th;
+    QThread *m_ping_th_hdlr;
+
     void set_ctrls_attr();
     void check_and_set_ctrl_vals();
     void refresh_ctrls_display();
@@ -78,11 +88,18 @@ private:
     void display_info(QString info_str, bool no_prefix = false);
 
 signals:
-    void test_finished_sig(test_finish_reason_e_t reason);
+    void test_finished_sig(test_finish_reason_e_t reason, bool quiet = false);
+    void start_ping_sig(const QString ip, int int_between_s_r = g_def_ping_int_between_s_r,
+                        int waitTimeSec = g_def_ping_wait_dura_s,
+                        int int_between_r_s = g_def_ping_int_between_r_s,
+                        int maxMissCount = g_def_ping_miss_count,
+                const QByteArray data = QByteArray(g_def_ping_data, qstrlen(g_def_ping_data)));
+    void stop_ping_sig();
 
 private slots:
     void cmd_timer_sig_hdlr();
-    void test_finished_sig_hdlr(test_finish_reason_e_t reason);
+    void test_finished_sig_hdlr(test_finish_reason_e_t reason, bool quiet = false);
     void on_clrDispPBtn_clicked();
+    void target_unavaliable_sig_hdlr();
 };
 #endif // MAINWINDOW_H

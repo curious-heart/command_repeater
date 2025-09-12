@@ -23,10 +23,26 @@ typedef struct
 
 typedef struct
 {
+    bool check_ping;
+    int ping_int_between_s_r, ping_wait_dura_s;
+    int ping_int_between_r_s;
+    int ping_miss_count;
+    QByteArray ping_data;
+}ping_params_s_t;
+
+typedef struct
+{
     LOG_LEVEL log_level;
     site_ip_port_s_t rmt_ip_port;
     cmd_blk_s_t cmd_blk;
+    ping_params_s_t ping_params;
 }sys_configs_struct_t;
+
+extern const int g_def_ping_int_between_s_r;
+extern const int g_def_ping_wait_dura_s;
+extern const int g_def_ping_int_between_r_s;
+extern const int g_def_ping_miss_count;
+extern const char * g_def_ping_data;
 
 extern sys_configs_struct_t g_sys_configs_block;
 

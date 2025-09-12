@@ -29,6 +29,21 @@ static const char* gs_ini_key_cmd2_name = "cmd2_name";
 static const char* gs_ini_key_cmd2_content = "cmd2_content";
 static const char* gs_ini_key_cmd2_dura_s = "cmd2_dura_s";
 
+static const char* gs_ini_grp_ping_params = "ping_params";
+static const char* gs_ini_key_check_ping = "check_ping";
+static const char* gs_ini_key_ping_int_between_s_r = "ping_int_between_s_r";
+static const char* gs_ini_key_ping_wait_dura_s = "ping_wait_dura_s";
+static const char* gs_ini_key_ping_int_between_r_s = "ping_int_between_r_s";
+static const char* gs_ini_key_ping_miss_count = "ping_miss_count";
+static const char* gs_ini_key_ping_data = "ping_data";
+
+static const bool gs_def_check_ping = true;
+const int g_def_ping_int_between_s_r = 2;
+const int g_def_ping_wait_dura_s = 2;
+const int g_def_ping_int_between_r_s = 3;
+const int g_def_ping_miss_count = 3;
+const char * g_def_ping_data = "reachable_test";
+
 sys_configs_struct_t g_sys_configs_block;
 
 static const LOG_LEVEL gs_def_log_level = LOG_ERROR;
@@ -130,25 +145,32 @@ static RangeChecker<double> gs_cfg_file_value_gt0_double_ranger(0, 0, "",
     ret = ret && cfg_ret;\
 }
 
-#define GET_INF_CFG_BYTEARRAY_VAL(settings, key, var, def, sep) \
+#define GET_INF_CFG_BYTEARRAY_VAL(settings, key, var, def, hex, sep) \
 {\
     QString tmp_str; \
     GET_INF_CFG_STRING_VAL(settings, key, tmp_str, def, !tmp_str.isEmpty()); \
     if(cfg_ret) \
     {\
-        tmp_str.remove(sep);\
-        if(tmp_str.isEmpty()) \
+        if(hex) \
         {\
-            cfg_ret = false; \
+            tmp_str.remove(sep);\
+            if(tmp_str.isEmpty()) \
+            {\
+                cfg_ret = false; \
+            }\
+            else \
+            {\
+                (var) = QByteArray::fromHex(tmp_str.toUtf8()); \
+                if((var).isEmpty()) cfg_ret = false;\
+            }\
+            if(!cfg_ret)\
+            {\
+                REC_CFG_RET_ERR(key, tmp_str) \
+            }\
         }\
         else \
         {\
-            (var) = QByteArray::fromHex(tmp_str.toUtf8()); \
-            if((var).isEmpty()) cfg_ret = false;\
-        }\
-        if(!cfg_ret)\
-        {\
-            REC_CFG_RET_ERR(key, tmp_str) \
+            (var) = tmp_str.toUtf8();\
         }\
     }\
     ret = ret && cfg_ret;\
@@ -220,27 +242,57 @@ bool fill_sys_configs(QString * ret_str_ptr)
 
     settings.beginGroup(gs_ini_grp_test_params);
     static QRegularExpression cmd_content_sps("[ \t]+");
-    GET_INF_CFG_STRING_VAL(settings, gs_ini_key_cmd1_name, g_sys_configs_block.cmd_blk.cmd1_name,
-                           gs_def_cmd1_name, true);
+    GET_INF_CFG_STRING_VAL(settings, gs_ini_key_cmd1_name,
+                           g_sys_configs_block.cmd_blk.cmd1_name, gs_def_cmd1_name, true);
     GET_INF_CFG_BYTEARRAY_VAL(settings, gs_ini_key_cmd1_content,
                               g_sys_configs_block.cmd_blk.cmd1_content, gs_def_cmd1_content,
-                              cmd_content_sps);
+                              true, cmd_content_sps);
     GET_INF_CFG_NUMBER_VAL(settings, gs_ini_key_cmd1_dura_s, toDouble,
                            g_sys_configs_block.cmd_blk.cmd1_dura_s, gs_def_cmd1_dura_s,
-                           1, &gs_cfg_file_value_gt0_double_ranger, (double));
+                           1, &gs_cfg_file_value_gt0_double_ranger);
 
-    GET_INF_CFG_STRING_VAL(settings, gs_ini_key_cmd2_name, g_sys_configs_block.cmd_blk.cmd2_name,
-                           gs_def_cmd2_name, true);
+    GET_INF_CFG_STRING_VAL(settings, gs_ini_key_cmd2_name,
+                           g_sys_configs_block.cmd_blk.cmd2_name, gs_def_cmd2_name, true);
     GET_INF_CFG_BYTEARRAY_VAL(settings, gs_ini_key_cmd2_content,
                               g_sys_configs_block.cmd_blk.cmd2_content, gs_def_cmd2_content,
-                              cmd_content_sps);
+                              true, cmd_content_sps);
     GET_INF_CFG_NUMBER_VAL(settings, gs_ini_key_cmd2_dura_s, toDouble,
                            g_sys_configs_block.cmd_blk.cmd2_dura_s, gs_def_cmd2_dura_s,
-                           1, &gs_cfg_file_value_gt0_double_ranger, (double));
+                           1, &gs_cfg_file_value_gt0_double_ranger);
 
     settings.endGroup();
 
     /*--------------------*/
+
+    /*--------------------*/
+    settings.beginGroup(gs_ini_grp_ping_params);
+    GET_INF_CFG_NUMBER_VAL(settings, gs_ini_key_check_ping, toInt,
+                           g_sys_configs_block.ping_params.check_ping,
+                           gs_def_check_ping,
+                           1, (RangeChecker<int>*)0, (bool));
+    GET_INF_CFG_NUMBER_VAL(settings, gs_ini_key_ping_int_between_s_r, toInt,
+                           g_sys_configs_block.ping_params.ping_int_between_s_r,
+                           g_def_ping_int_between_s_r,
+                           1, &gs_cfg_file_value_gt0_int_ranger);
+    GET_INF_CFG_NUMBER_VAL(settings, gs_ini_key_ping_wait_dura_s, toInt,
+                           g_sys_configs_block.ping_params.ping_wait_dura_s,
+                           g_def_ping_wait_dura_s,
+                           1, &gs_cfg_file_value_gt0_int_ranger);
+    GET_INF_CFG_NUMBER_VAL(settings, gs_ini_key_ping_int_between_r_s, toInt,
+                           g_sys_configs_block.ping_params.ping_int_between_r_s,
+                           g_def_ping_int_between_r_s,
+                           1, &gs_cfg_file_value_gt0_int_ranger);
+    GET_INF_CFG_NUMBER_VAL(settings, gs_ini_key_ping_miss_count, toInt,
+                           g_sys_configs_block.ping_params.ping_miss_count,
+                           g_def_ping_miss_count,
+                           1, &gs_cfg_file_value_gt0_int_ranger);
+    GET_INF_CFG_BYTEARRAY_VAL(settings, gs_ini_key_ping_data,
+                           g_sys_configs_block.ping_params.ping_data, g_def_ping_data,
+                           false, "");
+
+    settings.endGroup();
+    /*--------------------*/
+
     if(ret_str_ptr) *ret_str_ptr = ret_str;
     return ret;
 }
