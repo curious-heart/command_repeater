@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QUdpSocket>
+#include <QTcpSocket>
 #include <QThread>
 
 #include "config_recorder/uiconfigrecorder.h"
@@ -58,6 +59,11 @@ private slots:
 
     void on_stopTestPBtn_clicked();
 
+    void onSocketConnected();
+    void onSocketDisConnected();
+    void onSocketError(QAbstractSocket::SocketError socketError);
+    void onStateChanged(QAbstractSocket::SocketState socketState);
+
 private:
     Ui::MainWindow *ui;
     UiConfigRecorder m_cfg_recorder;
@@ -73,7 +79,8 @@ private:
     bool m_in_test;
     QTimer m_cmd_timer;
 
-    QUdpSocket *udpSocket;
+    QUdpSocket * udpSocket = nullptr;
+    QTcpSocket * tcpSocket = nullptr;
 
     PingThread * m_ping_th;
     QThread *m_ping_th_hdlr;
@@ -86,6 +93,9 @@ private:
 
     bool update_test_params_on_ui(bool init = false, QString *ret_err_str = nullptr);
     void display_info(QString info_str, bool no_prefix = false);
+
+    void tcp_conn();
+    void tcp_disconn();
 
 signals:
     void test_finished_sig(test_finish_reason_e_t reason, bool quiet = false);
@@ -101,5 +111,6 @@ private slots:
     void test_finished_sig_hdlr(test_finish_reason_e_t reason, bool quiet = false);
     void on_clrDispPBtn_clicked();
     void target_unavaliable_sig_hdlr();
+    void on_tcpConnPBtn_clicked();
 };
 #endif // MAINWINDOW_H

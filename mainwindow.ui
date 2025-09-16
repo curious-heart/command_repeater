@@ -108,7 +108,14 @@
      </layout>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="4,1,2,0">
+     <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,4,1,2,0">
+      <item>
+       <widget class="QPushButton" name="tcpConnPBtn">
+        <property name="text">
+         <string>连接</string>
+        </property>
+       </widget>
+      </item>
       <item>
        <widget class="QPushButton" name="startTestPBtn">
         <property name="text">

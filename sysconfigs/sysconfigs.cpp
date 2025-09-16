@@ -20,6 +20,7 @@ static const char* gs_ini_key_log_level = "log_level";
 static const char* gs_ini_grp_rmt_ip_port = "rmt_ip_port";
 static const char* gs_ini_key_rmt_ip = "rmt_ip";
 static const char* gs_ini_key_rmt_port = "rmt_port";
+static const char* gs_ini_key_prot = "prot";
 
 static const char* gs_ini_grp_test_params = "test_params";
 static const char* gs_ini_key_cmd1_name = "cmd1_name";
@@ -50,6 +51,9 @@ static const LOG_LEVEL gs_def_log_level = LOG_ERROR;
 
 static const char* gs_def_rmt_ip = "192.168.2.7";
 static const quint16 gs_def_rmt_port = 8020;
+static const char* gs_def_prot = "tcp";
+const char* g_prot_udp_str = "udp";
+const char* g_prot_tcp_str = "tcp";
 
 static QString gs_def_cmd1_name = "启动曝光";
 static const char* gs_def_cmd1_content = "AA 55";
@@ -236,6 +240,10 @@ bool fill_sys_configs(QString * ret_str_ptr)
     GET_INF_CFG_NUMBER_VAL_2(settings, gs_ini_key_rmt_port, toInt,
                            g_sys_configs_block.rmt_ip_port.port, tmp_port_val, gs_def_rmt_port,
                            1, &g_ip_port_ranger, (quint16));
+
+    GET_INF_CFG_STRING_VAL(settings, gs_ini_key_prot, g_sys_configs_block.rmt_ip_port.prot,
+                           gs_def_prot, (g_sys_configs_block.rmt_ip_port.prot == g_prot_udp_str
+                                         || g_sys_configs_block.rmt_ip_port.prot == g_prot_tcp_str));
     settings.endGroup();
 
     /*--------------------*/

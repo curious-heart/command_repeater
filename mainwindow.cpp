@@ -46,11 +46,24 @@ MainWindow::MainWindow(QWidget *parent)
 
     reset_test();
 
-    udpSocket = new QUdpSocket(this);
+    if(g_prot_udp_str == g_sys_configs_block.rmt_ip_port.prot)
+    {
+        udpSocket = new QUdpSocket(this);
+    }
+    else
+    {
+        tcpSocket = new QTcpSocket(this);
+        connect(tcpSocket, &QTcpSocket::connected, this, &MainWindow::onSocketConnected);
+        connect(tcpSocket, &QTcpSocket::disconnected, this, &MainWindow::onSocketDisConnected);
+        connect(tcpSocket, &QTcpSocket::stateChanged, this, &MainWindow::onStateChanged);
+        connect(tcpSocket, QOverload<QAbstractSocket::SocketError>::of(&QTcpSocket::errorOccurred),
+                this, &MainWindow::onSocketError);
+    }
 
     refresh_ctrls_display();
 
-    if(g_sys_configs_block.ping_params.check_ping)
+    if((g_prot_udp_str == g_sys_configs_block.rmt_ip_port.prot)
+            && g_sys_configs_block.ping_params.check_ping)
     {
         m_ping_th = new PingThread();
         if(m_ping_th->m_init_ok)
@@ -89,6 +102,11 @@ MainWindow::~MainWindow()
         test_finished_sig_hdlr(FINISH_ON_APP_EXIT, true);
     }
 
+    if(tcpSocket)
+    {
+        tcp_disconn();
+    }
+
     if(m_ping_th_hdlr)
     {
         m_ping_th_hdlr->quit();
@@ -116,8 +134,42 @@ void MainWindow::refresh_ctrls_display()
     ui->cmd1DuraLEdit->setEnabled(!m_in_test);
     ui->cmd2DuraLEdit->setEnabled(!m_in_test);
 
-    ui->startTestPBtn->setEnabled(!m_in_test);
-    ui->stopTestPBtn->setEnabled(m_in_test);
+    bool use_tcp = (g_prot_tcp_str == g_sys_configs_block.rmt_ip_port.prot);
+    ui->tcpConnPBtn->setVisible(use_tcp);
+    if(use_tcp)
+    {
+        bool send_en = false;
+        if(!tcpSocket)
+        {
+            ui->tcpConnPBtn->setEnabled(false);
+        }
+        else
+        {
+            ui->tcpConnPBtn->setEnabled(true);
+            if(tcpSocket->state() == QAbstractSocket::UnconnectedState)
+            {
+                ui->tcpConnPBtn->setText(g_str_connected);
+            }
+            else if(tcpSocket->state() == QAbstractSocket::ConnectedState)
+            {
+                ui->tcpConnPBtn->setText(g_str_disconnected);
+                send_en = true;
+            }
+            else
+            {
+                ui->tcpConnPBtn->setEnabled(false);
+            }
+
+        }
+        send_en = send_en && !m_in_test;
+        ui->startTestPBtn->setEnabled(send_en);
+        ui->stopTestPBtn->setEnabled(m_in_test);
+    }
+    else
+    {
+        ui->startTestPBtn->setEnabled(!m_in_test);
+        ui->stopTestPBtn->setEnabled(m_in_test);
+    }
 }
 
 void MainWindow::check_and_set_ctrl_vals()
@@ -277,7 +329,15 @@ void MainWindow::send_cmd(cmd_id_e_t cmd_id)
     QByteArray cmd = (CMD_1 == cmd_id) ? g_sys_configs_block.cmd_blk.cmd1_content :
                                          g_sys_configs_block.cmd_blk.cmd2_content;
 
-    udpSocket->writeDatagram(cmd, QHostAddress(m_rmt_ip), m_rmt_port);
+    if(g_prot_tcp_str == g_sys_configs_block.rmt_ip_port.prot)
+    {
+        tcpSocket->write(cmd);
+        tcpSocket->flush();
+    }
+    else
+    {
+        udpSocket->writeDatagram(cmd, QHostAddress(m_rmt_ip), m_rmt_port);
+    }
 
     QString log_str = QString("send %1 (%2) to %3:%4: ")
                                 .arg(VALID_CMD_ID(cmd_id) ? g_test_cmd_id_str[cmd_id]
@@ -351,6 +411,11 @@ void MainWindow::test_finished_sig_hdlr(test_finish_reason_e_t reason, bool quie
         display_info(str);
     }
 
+    if(g_prot_tcp_str == g_sys_configs_block.rmt_ip_port.prot)
+    {
+        tcp_disconn();
+    }
+
     if(m_ping_th_hdlr) emit stop_ping_sig();
 
     reset_test();
@@ -376,3 +441,94 @@ void MainWindow::target_unavaliable_sig_hdlr()
 {
     test_finished_sig_hdlr(FINISH_DUE_TO_NETWORK_ERROR);
 }
+
+void MainWindow::onSocketConnected()
+{
+    refresh_ctrls_display();
+
+    QString disp_str = "tcp connected.";
+    ui->infoDispEdit->append(disp_str);
+    DIY_LOG(LOG_INFO, disp_str)
+}
+
+void MainWindow::onSocketDisConnected()
+{
+    refresh_ctrls_display();
+
+    QString disp_str = "tcp disconnected.";
+    ui->infoDispEdit->append(disp_str);
+    DIY_LOG(LOG_INFO, disp_str);
+
+    test_finished_sig_hdlr(FINISH_DUE_TO_NETWORK_ERROR);
+
+}
+
+void MainWindow::onStateChanged(QAbstractSocket::SocketState socketState)
+{
+    refresh_ctrls_display();
+
+    QString disp_str = QString("tcp state changed to %1").arg(socketState);
+    ui->infoDispEdit->append(disp_str);
+    DIY_LOG(LOG_INFO, disp_str)
+}
+
+void MainWindow::onSocketError(QAbstractSocket::SocketError socketError)
+{
+    Q_UNUSED(socketError)
+
+    refresh_ctrls_display();
+
+    QString disp_str = QString("tcp error: %1").arg(tcpSocket->errorString());
+    ui->infoDispEdit->append(disp_str);
+    DIY_LOG(LOG_ERROR, disp_str)
+}
+
+void MainWindow::tcp_conn()
+{
+    if(!tcpSocket) return;
+
+    QAbstractSocket::SocketState sock_st = tcpSocket->state();
+    if(QAbstractSocket::UnconnectedState == sock_st)
+    {
+        tcpSocket->connectToHost(m_rmt_ip, m_rmt_port);
+    }
+    else
+    {
+        DIY_LOG(LOG_INFO, QString("cant't connt tcp sock_st: %2").arg(sock_st));
+    }
+}
+
+void MainWindow::tcp_disconn()
+{
+    if(tcpSocket && (tcpSocket->state() == QAbstractSocket::ConnectedState))
+    {
+        tcpSocket->disconnectFromHost();  // 发起断开
+        // 如果服务器没有立即关闭连接，可以调用 waitForDisconnected
+        if (!tcpSocket->waitForDisconnected(3000))
+        { // 最多等待3秒
+            DIY_LOG(LOG_WARN, "force tcp abort");
+            tcpSocket->abort(); // 强制断开
+        }
+    }
+}
+
+void MainWindow::on_tcpConnPBtn_clicked()
+{
+    if(!tcpSocket)
+    {
+        DIY_LOG(LOG_ERROR, "tcpSocket is NULL.");
+        return;
+    }
+    QAbstractSocket::SocketState sock_st = tcpSocket->state();
+    DIY_LOG(LOG_INFO, QString("TCP st: %1").arg(sock_st));
+    if(QAbstractSocket::UnconnectedState == sock_st)
+    {
+        tcp_conn();
+    }
+    else
+    {
+        tcp_disconn();
+    }
+    refresh_ctrls_display();
+}
+

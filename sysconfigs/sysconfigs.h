@@ -9,6 +9,7 @@ typedef struct
 {
     QString ip;
     quint16 port;
+    QString prot;
 }site_ip_port_s_t;
 
 typedef struct
@@ -45,6 +46,8 @@ extern const int g_def_ping_miss_count;
 extern const char * g_def_ping_data;
 
 extern sys_configs_struct_t g_sys_configs_block;
+extern const char* g_prot_udp_str;
+extern const char* g_prot_tcp_str;
 
 bool fill_sys_configs(QString *);
 
