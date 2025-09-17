@@ -46,7 +46,18 @@ MainWindow::MainWindow(QWidget *parent)
 
     reset_test();
 
-    if(g_prot_udp_str == g_sys_configs_block.rmt_ip_port.prot)
+    if(g_prot_tcp_server_str == g_sys_configs_block.rmt_ip_port.prot)
+    {
+        m_tcp_server = new CmdTcpServer(this);
+        ui->rmtIPLbl->setText(g_str_tcp_server_local_ip);
+        ui->rmtPortLbl->setText(g_str_tcp_server_local_port);
+
+        connect(m_tcp_server, &CmdTcpServer::rmt_client_connected, this, &MainWindow::tcp_server_conn);
+        connect(m_tcp_server, &CmdTcpServer::rmt_client_disconnected, this, &MainWindow::tcp_server_disconn);
+        connect(m_tcp_server, &CmdTcpServer::tcp_server_conn_state_changed,
+                this, &MainWindow::tcp_server_st_changed);
+    }
+    else if(g_prot_udp_str == g_sys_configs_block.rmt_ip_port.prot)
     {
         udpSocket = new QUdpSocket(this);
     }
@@ -102,6 +113,18 @@ MainWindow::~MainWindow()
         test_finished_sig_hdlr(FINISH_ON_APP_EXIT, true);
     }
 
+    if(m_tcp_server)
+    {
+        if(m_tcp_server->currentClient && m_tcp_server->currentClient)
+        {
+            m_tcp_server->currentClient->disconnectFromHost();
+            m_tcp_server->currentClient->deleteLater();
+            m_tcp_server->currentClient = nullptr;
+        }
+        m_tcp_server->close();
+        m_tcp_server = nullptr;
+    }
+
     if(tcpSocket)
     {
         tcp_disconn();
@@ -134,9 +157,10 @@ void MainWindow::refresh_ctrls_display()
     ui->cmd1DuraLEdit->setEnabled(!m_in_test);
     ui->cmd2DuraLEdit->setEnabled(!m_in_test);
 
-    bool use_tcp = (g_prot_tcp_str == g_sys_configs_block.rmt_ip_port.prot);
+    bool use_tcp = (g_prot_tcp_str == g_sys_configs_block.rmt_ip_port.prot)
+                || (g_prot_tcp_server_str == g_sys_configs_block.rmt_ip_port.prot);
     ui->tcpConnPBtn->setVisible(use_tcp);
-    if(use_tcp)
+    if(g_prot_tcp_str == g_sys_configs_block.rmt_ip_port.prot)
     {
         bool send_en = false;
         if(!tcpSocket)
@@ -160,6 +184,35 @@ void MainWindow::refresh_ctrls_display()
                 ui->tcpConnPBtn->setEnabled(false);
             }
 
+        }
+        send_en = send_en && !m_in_test;
+        ui->startTestPBtn->setEnabled(send_en);
+        ui->stopTestPBtn->setEnabled(m_in_test);
+    }
+    else if(g_prot_tcp_server_str == g_sys_configs_block.rmt_ip_port.prot)
+    {
+        if(!m_tcp_server)
+        {
+            DIY_LOG(LOG_ERROR, "tcp server is NULL!");
+            return;
+        }
+        if(!m_tcp_server->isListening())
+        {
+            ui->tcpConnPBtn->setText(g_str_tcp_server_startup);
+        }
+        else
+        {
+            ui->tcpConnPBtn->setText(g_str_tcp_server_shutdown);
+        }
+
+        bool send_en = false;
+        if(m_tcp_server->currentClient)
+        {
+            QAbstractSocket::SocketState sock_st = m_tcp_server->currentClient->state();
+            if(QAbstractSocket::ConnectedState == sock_st)
+            {
+                send_en = true;
+            }
         }
         send_en = send_en && !m_in_test;
         ui->startTestPBtn->setEnabled(send_en);
@@ -214,8 +267,9 @@ bool MainWindow::update_test_params_on_ui(bool init, QString * ret_err_str)
             err_str += QString((err_str.isEmpty() ? "" : "\n")) + g_str_invalid_ip_addr;
         }
     }
-    else
+    else if(g_sys_configs_block.rmt_ip_port.prot != g_prot_tcp_server_str)
     {
+
         m_rmt_ip = ui->rmtIPLEdit->text();
     }
 
@@ -234,7 +288,7 @@ bool MainWindow::update_test_params_on_ui(bool init, QString * ret_err_str)
             err_str += QString((err_str.isEmpty() ? "" : "\n")) + g_str_invalid_port_number;
         }
     }
-    else
+    else if(g_sys_configs_block.rmt_ip_port.prot != g_prot_tcp_server_str)
     {
         m_rmt_port = (quint16)tmp_port;
     }
@@ -319,24 +373,76 @@ void MainWindow::on_stopTestPBtn_clicked()
     test_finished_sig_hdlr(FINISH_BY_USER);
 }
 
-void MainWindow::send_cmd(cmd_id_e_t cmd_id)
+bool MainWindow::send_cmd(cmd_id_e_t cmd_id)
 {
     if(!VALID_CMD_ID(cmd_id))
     {
         DIY_LOG(LOG_ERROR, QString("Invalid cmd_id: %1").arg((int)cmd_id));
-        return;
+        return false;
     }
+    LOG_LEVEL log_lvl = LOG_INFO;
+    QString err_str;
+
     QByteArray cmd = (CMD_1 == cmd_id) ? g_sys_configs_block.cmd_blk.cmd1_content :
                                          g_sys_configs_block.cmd_blk.cmd2_content;
 
+    bool sent_finished = false;
     if(g_prot_tcp_str == g_sys_configs_block.rmt_ip_port.prot)
     {
-        tcpSocket->write(cmd);
-        tcpSocket->flush();
+        if(!tcpSocket)
+        {
+            log_lvl = LOG_ERROR;
+            err_str = "tcpSocket is NULL.";
+        }
+        else if(tcpSocket->state() != QAbstractSocket::ConnectedState)
+        {
+            log_lvl = LOG_ERROR;
+            err_str = QString("tcpSocket is not in connected st: %1").arg(tcpSocket->state());
+        }
+        else
+        {
+            tcpSocket->write(cmd);
+            tcpSocket->flush();
+            sent_finished = true;
+        }
+    }
+    else if(g_prot_tcp_server_str == g_sys_configs_block.rmt_ip_port.prot)
+    {
+        if(!m_tcp_server)
+        {
+            log_lvl = LOG_ERROR;
+            err_str = "tcp server is NULL.";
+        }
+        else if(!m_tcp_server->currentClient)
+        {
+            log_lvl = LOG_ERROR;
+            err_str = "tcp server socket is NULL.";
+        }
+        else if(m_tcp_server->currentClient->state() != QAbstractSocket::ConnectedState)
+        {
+            log_lvl = LOG_ERROR;
+            err_str = QString("tcp server socket is not in connected st: %1")
+                        .arg(m_tcp_server->currentClient->state());
+        }
+        else
+        {
+            m_tcp_server->currentClient->write(cmd);
+            m_tcp_server->currentClient->flush();
+            sent_finished = true;
+        }
     }
     else
     {
-        udpSocket->writeDatagram(cmd, QHostAddress(m_rmt_ip), m_rmt_port);
+        if(!udpSocket)
+        {
+            log_lvl = LOG_ERROR;
+            err_str = "udpSocket is NULL.";
+        }
+        else
+        {
+            udpSocket->writeDatagram(cmd, QHostAddress(m_rmt_ip), m_rmt_port);
+            sent_finished = true;
+        }
     }
 
     QString log_str = QString("send %1 (%2) to %3:%4: ")
@@ -346,13 +452,19 @@ void MainWindow::send_cmd(cmd_id_e_t cmd_id)
                                 .arg(m_rmt_ip).arg(m_rmt_port);
     log_str += cmd.toHex(' ').rightJustified(2, '0').toUpper();
 
-    DIY_LOG(LOG_INFO, log_str);
+    if(!err_str.isEmpty()) log_str += QString(" ") + err_str;
+
+    DIY_LOG(log_lvl, log_str);
 
     display_info(log_str);
+
+    return sent_finished;
 }
 
 void MainWindow::cmd_timer_sig_hdlr()
 {
+    static bool last_send_result = true;
+
     if(!m_in_test)
     {
         emit test_finished_sig(FINISH_NONE, true);
@@ -367,19 +479,21 @@ void MainWindow::cmd_timer_sig_hdlr()
         return;
     }
 
-    int timer_dura_ms;
-    if(CMD_1 == m_curr_cmd)
+    if(last_send_result)
     {
-        m_curr_cmd = CMD_2;
-        timer_dura_ms = (int)(m_cmd2_dura_s * 1000);
+        if(CMD_1 == m_curr_cmd)
+        {
+            m_curr_cmd = CMD_2;
+            m_curr_cmd_dura_ms = (int)(m_cmd2_dura_s * 1000);
+        }
+        else
+        {
+            m_curr_cmd = CMD_1;
+            m_curr_cmd_dura_ms = (int)(m_cmd1_dura_s * 1000);
+        }
     }
-    else
-    {
-        m_curr_cmd = CMD_1;
-        timer_dura_ms = (int)(m_cmd1_dura_s * 1000);
-    }
-    send_cmd(m_curr_cmd);
-    if(CMD_2 == m_curr_cmd)
+    last_send_result = send_cmd(m_curr_cmd);
+    if(last_send_result && (CMD_2 == m_curr_cmd))
     {
         ++m_repeat_idx;
     }
@@ -387,7 +501,8 @@ void MainWindow::cmd_timer_sig_hdlr()
     go_on = (CMD_1 == m_curr_cmd) || ui->repeatInfiChkbox->isChecked() || (m_repeat_idx < m_repeat_cnt);
     if(go_on)
     {
-        m_cmd_timer.start(timer_dura_ms);
+        if(last_send_result) m_cmd_timer.start(m_curr_cmd_dura_ms);
+        else m_cmd_timer.start((int)(g_sys_configs_block.cmd_blk.send_fail_retry_wait_s * 1000));
     }
     else
     {
@@ -514,21 +629,122 @@ void MainWindow::tcp_disconn()
 
 void MainWindow::on_tcpConnPBtn_clicked()
 {
-    if(!tcpSocket)
+    if(g_prot_tcp_server_str == g_sys_configs_block.rmt_ip_port.prot)
     {
-        DIY_LOG(LOG_ERROR, "tcpSocket is NULL.");
-        return;
+        if(!m_tcp_server)
+        {
+            DIY_LOG(LOG_ERROR, "tcp server is NULL");
+            return;
+        }
+
+        QString info_str, err_str;
+        LOG_LEVEL log_lvl = LOG_INFO;
+        if(!m_tcp_server->isListening())
+        {
+            if(!update_test_params_on_ui(false, &err_str))
+            {
+                QMessageBox::critical(this, "", err_str);
+                return;
+            }
+
+            if(!m_tcp_server->listen(QHostAddress(ui->rmtIPLEdit->text()),
+                                 ui->rmtPortLEdit->text().toUShort()))
+            {
+                info_str = QString("tcp server listen error: %1")
+                            .arg(m_tcp_server->errorString());
+                log_lvl = LOG_ERROR;
+            }
+            else
+            {
+                info_str = QString("tcp server started.");
+            }
+        }
+        else
+        {
+            if(m_tcp_server->currentClient)
+            {
+                m_tcp_server->currentClient->disconnectFromHost();
+                m_tcp_server->currentClient->deleteLater();
+                m_tcp_server->currentClient = nullptr;
+            }
+            m_tcp_server->close();
+            info_str = "tcp server closed.";
+        }
+        DIY_LOG(log_lvl, info_str);
+        ui->infoDispEdit->append(info_str);
+
     }
-    QAbstractSocket::SocketState sock_st = tcpSocket->state();
-    DIY_LOG(LOG_INFO, QString("TCP st: %1").arg(sock_st));
-    if(QAbstractSocket::UnconnectedState == sock_st)
+    else if(g_prot_tcp_str == g_sys_configs_block.rmt_ip_port.prot)
     {
-        tcp_conn();
-    }
-    else
-    {
-        tcp_disconn();
+        if(!tcpSocket)
+        {
+            DIY_LOG(LOG_ERROR, "tcpSocket is NULL.");
+            return;
+        }
+        QString err_str;
+        if(!update_test_params_on_ui(false, &err_str))
+        {
+            QMessageBox::critical(this, "", err_str);
+            return;
+        }
+        QAbstractSocket::SocketState sock_st = tcpSocket->state();
+        DIY_LOG(LOG_INFO, QString("TCP st: %1").arg(sock_st));
+        if(QAbstractSocket::UnconnectedState == sock_st)
+        {
+            tcp_conn();
+        }
+        else
+        {
+            tcp_disconn();
+        }
     }
     refresh_ctrls_display();
 }
 
+void MainWindow::tcp_server_conn(QTcpSocket *clientSocket)
+{
+    QString info_str;
+    if(!clientSocket)
+    {
+        info_str = "remote client connected, but the socket is NULL.";
+        ui->infoDispEdit->append(info_str);
+        DIY_LOG(LOG_ERROR, info_str);
+
+        return;
+    }
+
+    m_rmt_ip = clientSocket->peerAddress().toString();
+    m_rmt_port = clientSocket->peerPort();
+    info_str = QString("remote client %1:%2 connected.").arg(m_rmt_ip).arg(m_rmt_port);
+    ui->infoDispEdit->append(info_str);
+    DIY_LOG(LOG_INFO, info_str);
+
+    refresh_ctrls_display();
+}
+
+void MainWindow::tcp_server_disconn(QTcpSocket *clientSocket)
+{
+    QString info_str;
+
+    info_str = QString("remote client %1:%2 disconnected.").arg(m_rmt_ip).arg(m_rmt_port);
+    if(!clientSocket)
+    {
+        info_str += "\nremote client disconnected, but the socket is NULL.";
+    }
+
+    ui->infoDispEdit->append(info_str);
+    DIY_LOG(LOG_ERROR, info_str);
+
+    refresh_ctrls_display();
+    return;
+
+}
+
+void MainWindow::tcp_server_st_changed(QAbstractSocket::SocketState socketState)
+{
+    QString info_str = QString("tcp server sock state changed to %1").arg(socketState);
+    DIY_LOG(LOG_INFO, info_str);
+    ui->infoDispEdit->append(info_str);
+
+    refresh_ctrls_display();
+}

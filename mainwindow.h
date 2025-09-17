@@ -11,6 +11,7 @@
 #include "common_tools/common_macros.h"
 #include "sysconfigs/sysconfigs.h"
 #include "pingthread.h"
+#include "cmdtcpserver.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -64,6 +65,10 @@ private slots:
     void onSocketError(QAbstractSocket::SocketError socketError);
     void onStateChanged(QAbstractSocket::SocketState socketState);
 
+    void tcp_server_conn(QTcpSocket *clientSocket);
+    void tcp_server_disconn(QTcpSocket *clientSocket);
+    void tcp_server_st_changed(QAbstractSocket::SocketState socketState);
+
 private:
     Ui::MainWindow *ui;
     UiConfigRecorder m_cfg_recorder;
@@ -76,11 +81,14 @@ private:
 
     int m_repeat_idx;
     cmd_id_e_t m_curr_cmd;
+    int m_curr_cmd_dura_ms;
     bool m_in_test;
     QTimer m_cmd_timer;
 
     QUdpSocket * udpSocket = nullptr;
     QTcpSocket * tcpSocket = nullptr;
+
+    CmdTcpServer * m_tcp_server = nullptr;
 
     PingThread * m_ping_th;
     QThread *m_ping_th_hdlr;
@@ -89,7 +97,7 @@ private:
     void check_and_set_ctrl_vals();
     void refresh_ctrls_display();
     void reset_test();
-    void send_cmd(cmd_id_e_t cmd_id);
+    bool send_cmd(cmd_id_e_t cmd_id);
 
     bool update_test_params_on_ui(bool init = false, QString *ret_err_str = nullptr);
     void display_info(QString info_str, bool no_prefix = false);

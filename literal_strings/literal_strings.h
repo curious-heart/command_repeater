@@ -69,7 +69,11 @@ STR_DELCARE_STMT(g_str_plz_sel_at_least_two_files, "请选择至少2个文件") 
 STR_DELCARE_STMT(g_str_img_width_should_be_identical, "图像宽度必须相等") \
 STR_DELCARE_STMT(g_str_img_height_should_be_identical, "图像高度必须相等") \
 STR_DELCARE_STMT(g_str_pseudo_color, "着色") \
-STR_DELCARE_STMT(g_str_clear_pseudo_color, "去除着色")
+STR_DELCARE_STMT(g_str_clear_pseudo_color, "去除着色") \
+STR_DELCARE_STMT(g_str_tcp_server_local_ip, "本地IP") \
+STR_DELCARE_STMT(g_str_tcp_server_local_port, "本地端口") \
+STR_DELCARE_STMT(g_str_tcp_server_startup, "启动") \
+STR_DELCARE_STMT(g_str_tcp_server_shutdown, "关闭")
 
 LIT_STRINGS_LIST
 

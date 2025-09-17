@@ -9,6 +9,7 @@ CONFIG += c++17
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    cmdtcpserver.cpp \
     common_tools/common_tool_func.cpp \
     config_recorder/uiconfigrecorder.cpp \
     literal_strings/literal_strings.cpp \
@@ -20,6 +21,7 @@ SOURCES += \
     version_def/version_def.cpp
 
 HEADERS += \
+    cmdtcpserver.h \
     common_tools/common_macros.h \
     common_tools/common_tool_func.h \
     config_recorder/uiconfigrecorder.h \

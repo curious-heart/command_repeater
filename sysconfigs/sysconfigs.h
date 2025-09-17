@@ -14,6 +14,7 @@ typedef struct
 
 typedef struct
 {
+    double send_fail_retry_wait_s;
     QString cmd1_name;
     QByteArray cmd1_content;
     double cmd1_dura_s;
@@ -48,6 +49,7 @@ extern const char * g_def_ping_data;
 extern sys_configs_struct_t g_sys_configs_block;
 extern const char* g_prot_udp_str;
 extern const char* g_prot_tcp_str;
+extern const char* g_prot_tcp_server_str;
 
 bool fill_sys_configs(QString *);
 

@@ -23,6 +23,7 @@ static const char* gs_ini_key_rmt_port = "rmt_port";
 static const char* gs_ini_key_prot = "prot";
 
 static const char* gs_ini_grp_test_params = "test_params";
+static const char* gs_ini_key_send_fail_retry_wait_s = "send_fail_retry_wait_s";
 static const char* gs_ini_key_cmd1_name = "cmd1_name";
 static const char* gs_ini_key_cmd1_content = "cmd1_content";
 static const char* gs_ini_key_cmd1_dura_s = "cmd1_dura_s";
@@ -54,7 +55,9 @@ static const quint16 gs_def_rmt_port = 8020;
 static const char* gs_def_prot = "tcp";
 const char* g_prot_udp_str = "udp";
 const char* g_prot_tcp_str = "tcp";
+const char* g_prot_tcp_server_str = "tcp_server";
 
+static const double gs_def_send_fail_retry_wait_s = 5;
 static QString gs_def_cmd1_name = "启动曝光";
 static const char* gs_def_cmd1_content = "AA 55";
 static const double gs_def_cmd1_dura_s = 10;
@@ -243,12 +246,19 @@ bool fill_sys_configs(QString * ret_str_ptr)
 
     GET_INF_CFG_STRING_VAL(settings, gs_ini_key_prot, g_sys_configs_block.rmt_ip_port.prot,
                            gs_def_prot, (g_sys_configs_block.rmt_ip_port.prot == g_prot_udp_str
-                                         || g_sys_configs_block.rmt_ip_port.prot == g_prot_tcp_str));
+                                     || g_sys_configs_block.rmt_ip_port.prot == g_prot_tcp_str
+                                     || g_sys_configs_block.rmt_ip_port.prot == g_prot_tcp_server_str ));
     settings.endGroup();
 
     /*--------------------*/
 
     settings.beginGroup(gs_ini_grp_test_params);
+
+    GET_INF_CFG_NUMBER_VAL(settings, gs_ini_key_send_fail_retry_wait_s, toDouble,
+                           g_sys_configs_block.cmd_blk.send_fail_retry_wait_s,
+                           gs_def_send_fail_retry_wait_s,
+                           1, &gs_cfg_file_value_gt0_double_ranger);
+
     static QRegularExpression cmd_content_sps("[ \t]+");
     GET_INF_CFG_STRING_VAL(settings, gs_ini_key_cmd1_name,
                            g_sys_configs_block.cmd_blk.cmd1_name, gs_def_cmd1_name, true);
